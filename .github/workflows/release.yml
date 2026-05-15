@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, for example v0.1.0"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark this GitHub release as a prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and publish universal macOS app
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Select release tag
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${{ inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build app
+        run: make app
+
+      - name: Verify universal binary and signature
+        run: |
+          lipo -info .build/release/BMM.app/Contents/MacOS/BMM
+          lipo -verify_arch arm64 x86_64 .build/release/BMM.app/Contents/MacOS/BMM
+          codesign --verify --deep --strict .build/release/BMM.app
+
+      - name: Package release asset
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          asset_name="BMM-${tag}-macOS-universal.zip"
+          ditto -c -k --keepParent .build/release/BMM.app ".build/release/${asset_name}"
+          shasum -a 256 ".build/release/${asset_name}" > ".build/release/${asset_name}.sha256"
+          echo "asset_name=${asset_name}" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" \
+              ".build/release/${asset_name}" \
+              ".build/release/${asset_name}.sha256" \
+              --clobber
+            exit 0
+          fi
+
+          args=(
+            "$tag"
+            ".build/release/${asset_name}"
+            ".build/release/${asset_name}.sha256"
+            --verify-tag
+            --title "Better Mouse Mover $tag"
+            --notes "Universal macOS build for Apple Silicon and Intel Macs."
+          )
+
+          if [ "${{ steps.release.outputs.prerelease }}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+
+          gh release create "${args[@]}"
