@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>BMM</string>
 	<key>CFBundleIdentifier</key>
-	<string>local.bmm</string>
+	<string>com.ferouk.bettermousemover</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleInfoDictionaryVersion</key>

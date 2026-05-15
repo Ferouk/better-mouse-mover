@@ -3,8 +3,11 @@ ARCHS ?= arm64 x86_64
 ARCH_COUNT := $(words $(ARCHS))
 BUNDLE := .build/release/$(APP_NAME).app
 BINARY := .build/release/bmm
+INSTALL_DIR ?= $(HOME)/Applications
+INSTALL_BUNDLE := $(INSTALL_DIR)/$(APP_NAME).app
+SIGN_IDENTITY ?= -
 
-.PHONY: build app clean run
+.PHONY: build app install clean run run-installed
 
 build:
 	rm -rf ".build/release"
@@ -31,11 +34,22 @@ app: build
 	cp Resources/Info.plist "$(BUNDLE)/Contents/Info.plist"
 	cp Resources/AppIcon.icns "$(BUNDLE)/Contents/Resources/AppIcon.icns"
 	cp Resources/*.png "$(BUNDLE)/Contents/Resources/"
-	codesign --force --deep --sign - "$(BUNDLE)"
+	codesign --force --deep --sign "$(SIGN_IDENTITY)" "$(BUNDLE)"
 	@echo "Built $(BUNDLE)"
 
-run: app
+install: app
+	mkdir -p "$(INSTALL_DIR)"
+	rm -rf "$(INSTALL_BUNDLE)"
+	cp -R "$(BUNDLE)" "$(INSTALL_BUNDLE)"
+	@echo "Installed $(INSTALL_BUNDLE)"
+
+run:
+	@test -d "$(BUNDLE)" || { echo "$(BUNDLE) does not exist. Run 'make app' first."; exit 1; }
 	open "$(BUNDLE)"
+
+run-installed:
+	@test -d "$(INSTALL_BUNDLE)" || { echo "$(INSTALL_BUNDLE) does not exist. Run 'make install' first."; exit 1; }
+	open "$(INSTALL_BUNDLE)"
 
 clean:
 	swift package clean

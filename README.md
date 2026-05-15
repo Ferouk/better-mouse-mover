@@ -34,6 +34,15 @@ make run
 
 Better Mouse Mover appears in the macOS menu bar. It starts automatically, checks idle state every 5 seconds, and nudges the cursor by 1 point after 60 seconds of no keyboard or mouse activity. You can also choose a custom menu bar icon from the `Tray Icon` menu.
 
+`make run` opens the existing app bundle without rebuilding it. This helps macOS keep the Accessibility permission attached to the same signed app. Run `make app` again only when you want to rebuild.
+
+For the most reliable Accessibility permission behavior while testing locally, install and run the app from your user Applications folder:
+
+```sh
+make install
+make run-installed
+```
+
 ## Accessibility Permission
 
 macOS requires Accessibility permission before an app can post mouse movement events.
@@ -44,7 +53,13 @@ Open:
 System Settings > Privacy & Security > Accessibility
 ```
 
-Then enable Better Mouse Mover. If it is already running, quit and reopen it after granting permission.
+Then enable Better Mouse Mover. If it is already running, quit and reopen it after granting permission. If the permission keeps turning off, remove the old Better Mouse Mover entry, run `make install` once, open the installed app with `make run-installed`, and grant permission to that installed app.
+
+The development build is ad-hoc signed by default. For a more stable local identity, you can sign with a local or Apple code signing certificate:
+
+```sh
+make install SIGN_IDENTITY="Your Code Signing Identity"
+```
 
 ## Contributing
 

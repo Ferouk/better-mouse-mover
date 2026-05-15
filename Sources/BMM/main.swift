@@ -67,8 +67,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func start() {
         guard Accessibility.isTrusted(prompt: true) else {
-            showAccessibilityAlert()
             stop()
+            if showAccessibilityAlert() == .openSettingsAndQuit {
+                Accessibility.openSettings()
+                NSApp.terminate(nil)
+            }
             return
         }
 
@@ -183,13 +186,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
 
-    private func showAccessibilityAlert() {
+    private func showAccessibilityAlert() -> AccessibilityAlertAction {
         let alert = NSAlert()
         alert.messageText = "Accessibility permission is needed"
-        alert.informativeText = "Allow Better Mouse Mover in System Settings > Privacy & Security > Accessibility, then start it again from the menu bar."
+        alert.informativeText = "Allow Better Mouse Mover in System Settings > Privacy & Security > Accessibility, then quit and reopen the app."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        alert.addButton(withTitle: "Open Settings and Quit")
+        alert.addButton(withTitle: "Not Now")
+
+        return alert.runModal() == .alertFirstButtonReturn ? .openSettingsAndQuit : .notNow
     }
 
     private func showMoveFailedAlert(_ error: Error) {
@@ -200,6 +205,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
+}
+
+enum AccessibilityAlertAction {
+    case openSettingsAndQuit
+    case notNow
 }
 
 enum StatusBarIcon {
@@ -270,6 +280,14 @@ enum Accessibility {
         ] as CFDictionary
 
         return AXIsProcessTrustedWithOptions(options)
+    }
+
+    static func openSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
     }
 }
 
